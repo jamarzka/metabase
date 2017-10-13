@@ -169,18 +169,21 @@
      :fields (set (for [[name type] rows]
                     {:name name, :base-type (presto-type->base-type type)}))}))
 
-(def ^:private time-format (tformat/with-zone (tformat/formatter "HH:mm:SS.SSS") clj-time.core/utc))
+(def ^:private time-format (tformat/formatter "HH:mm:SS.SSS"))
 
-(defn- time->str [t]
-;;  (println "time->str" t " is "   (tformat/unparse time-format (tcoerce/to-date-time t)))
-  (tformat/unparse time-format (tcoerce/to-date-time t)))
+(defn- time->str
+  ([t]
+   (time->str t nil))
+  ([t tz-id]
+   (let [tz (clj-time.core/time-zone-for-id tz-id)]
+     (tformat/unparse (tformat/with-zone time-format tz) (tcoerce/to-date-time t)))))
 
 (defprotocol ^:private IPrepareValue
   (^:private prepare-value [this]))
 (extend-protocol IPrepareValue
   nil           (prepare-value [_] nil)
   DateTimeValue (prepare-value [{:keys [value]}] (prepare-value value))
-  TimeValue     (prepare-value [{:keys [value]}] (hx/cast :time (prepare-value value)))
+  TimeValue     (prepare-value [{:keys [value timezone-id]}] (hx/cast :time (time->str value timezone-id)))
   Time          (prepare-value [value] (time->str value))
   Value         (prepare-value [{:keys [value]}] (prepare-value value))
   String        (prepare-value [this] (hx/literal (str/replace this "'" "''")))
