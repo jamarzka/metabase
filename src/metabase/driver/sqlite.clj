@@ -140,6 +140,8 @@
 ;; SQLite doesn't support `TRUE`/`FALSE`; it uses `1`/`0`, respectively; convert these booleans to numbers.
 (defn- prepare-value [{value :value}]
   (cond
+    (instance? java.sql.Time value)
+    (hsql/call :time (clj-time.format/unparse (clj-time.format/formatters :hour-minute-second-ms) (clj-time.coerce/to-date-time value)))
     (true? value)  1
     (false? value) 0
     :else          value))
