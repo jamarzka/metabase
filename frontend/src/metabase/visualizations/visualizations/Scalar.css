@@ -11,11 +11,17 @@
 :local .Scalar .Title {
   margin-top: 0.5em;
 }
+:local .Scalar .Compare {
+  padding: 1em 2em;
+}
 
 :local .Scalar.small .Value {
   font-size: 2em;
 }
 :local .Scalar.small .Title {
+  font-size: 1em;
+}
+:local .Scalar.small .Compare {
   font-size: 1em;
 }
 
@@ -26,5 +32,8 @@
   font-size: 2.5em;
 }
 :local .Scalar.large .Title {
+  font-size: 1.2em;
+}
+:local .Scalar.large .Compare {
   font-size: 1.2em;
 }

@@ -73,6 +73,7 @@ export default class Scalar extends Component {
 
     static settings = {
         "scalar.locale": {
+            section: "Number",
             title: "Separator style",
             widget: "select",
             props: {
@@ -86,43 +87,70 @@ export default class Scalar extends Component {
             default: "en"
         },
         "scalar.decimals": {
+            section: "Number",
             title: "Number of decimal places",
             widget: "number"
         },
         "scalar.prefix": {
+            section: "Number",
             title: "Add a prefix",
             widget: "input"
         },
         "scalar.suffix": {
+            section: "Number",
             title: "Add a suffix",
             widget: "input"
         },
         "scalar.scale": {
+            section: "Number",
+            title: "Multiply by a number",
+            widget: "number"
+        },
+        "compare.locale": {
+            section: "Compare",
+            title: "Separator style",
+            widget: "select",
+            props: {
+                options: [
+                    { name: "100000.00", value: null },
+                    { name: "100,000.00", value: "en" },
+                    { name: "100 000,00", value: "fr" },
+                    { name: "100.000,00", value: "de" }
+                ]
+            },
+            default: "en"
+        },
+        "compare.decimals": {
+            section: "Compare",
+            title: "Number of decimal places",
+            widget: "number"
+        },
+        "compare.prefix": {
+            section: "Compare",
+            title: "Add a prefix",
+            widget: "input"
+        },
+        "compare.suffix": {
+            section: "Compare",
+            title: "Add a suffix",
+            widget: "input"
+        },
+        "compare.scale": {
+            section: "Compare",
             title: "Multiply by a number",
             widget: "number"
         },
     };
 
-    render() {
-        let { series: [{ card, data: { cols, rows }}], className, actionButtons, gridSize, settings, onChangeCardAndRun, visualizationIsClickable, onVisualizationClick } = this.props;
-        let description = settings["card.description"];
-
-        let isSmall = gridSize && gridSize.width < 4;
-        const column = cols[0];
-
-        let scalarValue = rows[0] && rows[0][0];
-        if (scalarValue == null) {
-            scalarValue = "";
-        }
-
-        let compactScalarValue, fullScalarValue;
+    formatValue(value, options) {
+        let fullValue, compactValue;
 
         // TODO: some or all of these options should be part of formatValue
-        if (typeof scalarValue === "number" && isNumber(column)) {
-            let number = scalarValue;
+        if (typeof value === "number" && isNumber(options.column)) {
+            let number = value;
 
             // scale
-            const scale =  parseFloat(settings["scalar.scale"]);
+            const scale =  parseFloat(options.scale);
             if (!isNaN(scale)) {
                 number *= scale;
             }
@@ -130,22 +158,22 @@ export default class Scalar extends Component {
             const localeStringOptions = {};
 
             // decimals
-            let decimals = parseFloat(settings["scalar.decimals"]);
+            let decimals = parseFloat(options.decimals);
             if (!isNaN(decimals)) {
                 number = d3.round(number, decimals);
                 localeStringOptions.minimumFractionDigits = decimals;
             }
 
             // currency
-            if (settings["scalar.currency"] != null) {
+            if (options.currency != null) {
                 localeStringOptions.style = "currency";
-                localeStringOptions.currency = settings["scalar.currency"];
+                localeStringOptions.currency = options.currency;
             }
 
             try {
                 // format with separators and correct number of decimals
-                if (settings["scalar.locale"]) {
-                    number = number.toLocaleString(settings["scalar.locale"], localeStringOptions);
+                if (options.locale) {
+                    number = number.toLocaleString(options.locale, localeStringOptions);
                 } else {
                     // HACK: no locales that don't thousands separators?
                     number = number.toLocaleString("en", localeStringOptions).replace(/,/g, "");
@@ -153,44 +181,99 @@ export default class Scalar extends Component {
             } catch (e) {
                 console.warn("error formatting scalar", e);
             }
-            fullScalarValue = formatValue(number, { column: column });
+            fullValue = formatValue(number, { column: options.column });
         } else {
-            fullScalarValue = formatValue(scalarValue, { column: column });
+            fullValue = formatValue(value, { column: options.column });
         }
 
-        compactScalarValue = isSmall ? formatValue(scalarValue, { column: column, compact: true }) : fullScalarValue
+        compactValue = options.compact ? formatValue(value, { column: options.column, compact: true }) : fullValue
 
-        if (settings["scalar.prefix"]) {
-            compactScalarValue = settings["scalar.prefix"] + compactScalarValue;
-            fullScalarValue = settings["scalar.prefix"] + fullScalarValue;
+        if (options.prefix) {
+            compactValue = options.prefix + compactValue;
+            fullValue = options.prefix + fullValue;
         }
-        if (settings["scalar.suffix"]) {
-            compactScalarValue = compactScalarValue + settings["scalar.suffix"];
-            fullScalarValue = fullScalarValue + settings["scalar.suffix"];
+        if (options.suffix) {
+            compactValue = compactValue + options.suffix;
+            fullValue = fullValue + options.suffix;
         }
 
-        const clicked = {
+        return {
+            compactValue,
+            fullValue
+        }
+    }
+
+    render() {
+        let { series: [{ card, data: { cols, rows }}], className, actionButtons, gridSize, settings, onChangeCardAndRun, visualizationIsClickable, onVisualizationClick } = this.props;
+        let description = settings["card.description"];
+
+        let isSmall = gridSize && gridSize.width < 4;
+
+        let scalarValue = rows[0] && rows[0][0];
+        if (scalarValue == null) {
+            scalarValue = "";
+        }
+
+        let compareValue = rows[0] && rows[0][1];
+        if (compareValue == null) {
+            compareValue = "";
+        }
+        const hasCompare = cols[1] != null;
+
+        let scalarOptions = {
+            compact: isSmall,
+            column: cols[0],
+            scale: settings["scalar.scale"],
+            decimals: settings["scalar.decimals"],
+            currency: settings["scalar.currency"],
+            locale: settings["scalar.locale"],
+            prefix: settings["scalar.prefix"],
+            suffix: settings["scalar.suffix"],
+        }
+
+        const scalarClicked = {
             value: rows[0] && rows[0][0],
             column: cols[0]
         };
-        const isClickable = visualizationIsClickable(clicked);
+        const isScalarClickable = visualizationIsClickable(scalarClicked);
+
+        const formattedScalar = this.formatValue(scalarValue, scalarOptions);
+
+        let compareOptions = {
+            compact: isSmall,
+            column: cols[1],
+            scale: settings["compare.scale"],
+            decimals: settings["compare.decimals"],
+            currency: settings["compare.currency"],
+            locale: settings["compare.locale"],
+            prefix: settings["compare.prefix"],
+            suffix: settings["compare.suffix"],
+        }
+
+        const compareClicked = {
+            value: rows[0] && rows[0][1],
+            column: cols[1]
+        };
+        const isCompareClickable = visualizationIsClickable(compareClicked);
+
+        const formattedCompare = this.formatValue(compareValue, compareOptions);
 
         return (
             <div className={cx(className, styles.Scalar, styles[isSmall ? "small" : "large"])}>
                 <div className="Card-title absolute top right p1 px2">{actionButtons}</div>
                 <Ellipsified
                     className={cx(styles.Value, 'ScalarValue text-dark fullscreen-normal-text fullscreen-night-text', {
-                        "text-brand-hover cursor-pointer": isClickable
+                        "text-brand-hover cursor-pointer": isScalarClickable
                     })}
-                    tooltip={fullScalarValue}
-                    alwaysShowTooltip={fullScalarValue !== compactScalarValue}
+                    tooltip={formattedScalar.fullValue}
+                    alwaysShowTooltip={formattedScalar.fullValue !== formattedScalar.compactValue}
                     style={{maxWidth: '100%'}}
                 >
                     <span
-                        onClick={isClickable && (() => this._scalar && onVisualizationClick({ ...clicked, element: this._scalar }))}
+                        onClick={isScalarClickable && (() => this._scalar && onVisualizationClick({ ...scalarClicked, element: this._scalar }))}
                         ref={scalar => this._scalar = scalar}
                     >
-                        {compactScalarValue}
+                        {formattedScalar.compactValue}
                     </span>
                 </Ellipsified>
                 { this.props.isDashboard  && (
@@ -217,6 +300,24 @@ export default class Scalar extends Component {
                           </div>
                         }
                     </div>
+                )}
+                { hasCompare && (
+                    <Ellipsified
+                        className={cx(styles.Compare, 'CompareValue text-dark fullscreen-normal-text fullscreen-night-text', {
+                            "text-brand-hover cursor-pointer": isCompareClickable,
+                            "absolute bottom": this.props.isDashboard
+                        })}
+                        tooltip={formattedCompare.fullValue}
+                        alwaysShowTooltip={formattedCompare.fullValue !== formattedCompare.compactValue}
+                        style={{maxWidth: '100%'}}
+                    >
+                        <span
+                            onClick={isCompareClickable && (() => this._scalar && onVisualizationClick({ ...compareClicked, element: this._scalar }))}
+                            ref={scalar => this._scalar = scalar}
+                        >
+                            {formattedCompare.compactValue} {compareOptions.column.display_name}
+                        </span>
+                    </Ellipsified>
                 )}
             </div>
         );
