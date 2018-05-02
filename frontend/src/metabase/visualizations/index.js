@@ -1,5 +1,6 @@
 /* @flow weak */
 
+import Britechart  from "./visualizations/Britechart.jsx";
 import Scalar      from "./visualizations/Scalar.jsx";
 import Progress    from "./visualizations/Progress.jsx";
 import Table       from "./visualizations/Table.jsx";
@@ -111,6 +112,7 @@ const extractRemappedColumns = (data) => {
     }
 }
 
+registerVisualization(Britechart);
 registerVisualization(Scalar);
 registerVisualization(Progress);
 registerVisualization(Table);
